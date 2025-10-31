@@ -20,7 +20,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build (no tests)
-        run: mvn -q -DskipTests -pl core -am clean install -Dlicense.skip=true -Dcheckstyle.skip -Drat.skip
+        run: >
+          mvn -q -DskipTests -Dmaven.javadoc.skip=true
+          -pl core -am clean install
+          -Dlicense.skip=true -Dcheckstyle.skip -Drat.skip
 
       - name: Run test normally (expect PASS)
         run: mvn -pl core test -Dtest='org.fourthline.cling.test.gena.EventXMLProcessingTest#writeReadRequestPull'
