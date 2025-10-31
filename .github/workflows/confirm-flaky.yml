@@ -1,15 +1,61 @@
-- name: Build (no tests)
-  run: mvn -q -DskipTests -pl core -am clean install -Dlicense.skip=true -Dcheckstyle.skip -Drat.skip
+ame: Confirm Flaky Test (cling)
 
-- name: Run test normally (expect PASS)
-  run: mvn -pl core test -Dtest=org.fourthline.cling.test.gena.EventXMLProcessingTest#writeReadRequestPull
+on:
+  workflow_dispatch:
+    inputs:
+      nondexRuns:
+        description: "Number of NonDex runs"
+        required: false
+        default: "200"
 
-- name: Run with NonDex (expect FAIL)
-  run: |
-    set +e
-    mvn -pl core edu.illinois:nondex-maven-plugin:2.1.1:nondex \
-      -Dtest=org.fourthline.cling.test.gena.EventXMLProcessingTest#writeReadRequestPull \
-      -DnondexRuns=200 -Dsurefire.rerunFailingTestsCount=0 | tee nondex.log
-    EC=$?
-    [ $EC -ne 0 ] && echo "Expected NonDex failure reproduced." && exit 0
-    echo "Unexpected: NonDex passed."; exit 1
+jobs:
+  confirm-flaky:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      MAVEN_OPTS: "-Xmx2g"
+
+    steps:
+      - name: Checkout cling
+        uses: actions/checkout@v4
+
+      - name: Set up Temurin JDK 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "8"
+          cache: maven
+
+      - name: Build (no tests)
+        run: >
+          mvn -q -DskipTests -pl core -am clean install
+          -Dlicense.skip=true -Dcheckstyle.skip -Drat.skip
+
+      - name: Run test normally (expect PASS)
+        run: >
+          mvn -pl core test
+          -Dtest='org.fourthline.cling.test.gena.EventXMLProcessingTest#writeReadRequestPull'
+
+      - name: Run with NonDex (expect FAIL)
+        run: |
+          set +e
+          mvn -pl core edu.illinois:nondex-maven-plugin:2.1.1:nondex \
+            -Dtest='org.fourthline.cling.test.gena.EventXMLProcessingTest#writeReadRequestPull' \
+            -DnondexRuns='${{ github.event.inputs.nondexRuns }}' \
+            -Dsurefire.rerunFailingTestsCount=0 | tee nondex.log
+          EC=$?
+          echo "NonDex exit code: $EC"
+          if [ $EC -eq 0 ]; then
+            echo "Unexpected: NonDex passed."; exit 1
+          else
+            echo "Expected NonDex failure reproduced."; exit 0
+          fi
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cling-nondex-logs
+          path: |
+            nondex.log
+            core/target/surefire-reports
