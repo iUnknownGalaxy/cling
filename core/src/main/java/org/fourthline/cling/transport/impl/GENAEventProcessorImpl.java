@@ -38,6 +38,10 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.FactoryConfigurationError;
 
 import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -129,14 +133,24 @@ public class GENAEventProcessorImpl implements GENAEventProcessor, ErrorHandler 
     /* ##################################################################################################### */
 
     protected void writeProperties(Document d, Element propertysetElement, OutgoingEventRequestMessage message) {
-        for (StateVariableValue stateVariableValue : message.getStateVariableValues()) {
+        List<StateVariableValue> values = new ArrayList<StateVariableValue>(message.getStateVariableValues());
+        
+        Collections.sort(values, new Comparator<StateVariableValue>() {
+            public int compare(StateVariableValue a, StateVariableValue b) {
+                String na = a.getStateVariable().getName();
+                String nb = b.getStateVariable().getName();
+                return nb.compareTo(na);
+            }
+        });
+
+        for (StateVariableValue svv : values) {
             Element propertyElement = d.createElementNS(Constants.NS_UPNP_EVENT_10, "e:property");
             propertysetElement.appendChild(propertyElement);
             XMLUtil.appendNewElement(
                     d,
                     propertyElement,
-                    stateVariableValue.getStateVariable().getName(),
-                    stateVariableValue.toString()
+                    svv.getStateVariable().getName(),
+                    svv.toString()
             );
         }
     }
