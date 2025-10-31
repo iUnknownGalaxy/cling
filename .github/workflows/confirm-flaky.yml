@@ -25,21 +25,47 @@ jobs:
           distribution: temurin
           java-version: "8"
           cache: maven
+      
+      - name: Write Maven settings (mirror old HTTP repos)
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<'XML'
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                    xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
+            <mirrors>
+              <!-- Replace cling's HTTP repo with HTTPS -->
+              <mirror>
+                <id>4thline-https</id>
+                <name>4thline HTTPS mirror</name>
+                <url>https://4thline.org/m2</url>
+                <mirrorOf>4thline-repo</mirrorOf>
+              </mirror>
+              <!-- Point the dead Google Code repo at Maven Central so Maven doesn't choke -->
+              <mirror>
+                <id>onejar-central</id>
+                <name>OneJar fallback to Central</name>
+                <url>https://repo1.maven.org/maven2</url>
+                <mirrorOf>onejar-maven-plugin.googlecode.com</mirrorOf>
+              </mirror>
+            </mirrors>
+          </settings>
+          XML
 
       - name: Build (no tests)
         run: >
-          mvn -q -DskipTests -pl core -am clean install
+          mvn -q -s ~/.m2/settings.xml -DskipTests -pl core -am clean install
           -Dlicense.skip=true -Dcheckstyle.skip -Drat.skip
 
       - name: Run test normally (expect PASS)
         run: >
-          mvn -pl core test
+          mvn -s ~/.m2/settings.xml -pl core test
           -Dtest='org.fourthline.cling.test.gena.EventXMLProcessingTest#writeReadRequestPull'
 
       - name: Run with NonDex (expect FAIL)
         run: |
           set +e
-          mvn -pl core edu.illinois:nondex-maven-plugin:2.1.1:nondex \
+          mvn -s ~/.m2/settings.xml -pl core edu.illinois:nondex-maven-plugin:2.1.1:nondex \
             -Dtest='org.fourthline.cling.test.gena.EventXMLProcessingTest#writeReadRequestPull' \
             -DnondexRuns='${{ github.event.inputs.nondexRuns }}' \
             -Dsurefire.rerunFailingTestsCount=0 | tee nondex.log
