@@ -1,4 +1,4 @@
-ame: Confirm Flaky Test (cling)
+name: Confirm Flaky Test (cling)
 
 on:
   workflow_dispatch:
