@@ -10,7 +10,7 @@ on:
 
 jobs:
   confirm-flaky:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cling-runner]
     timeout-minutes: 45
     env:
       MAVEN_OPTS: "-Xmx2g"
@@ -19,68 +19,23 @@ jobs:
       - name: Checkout cling
         uses: actions/checkout@v4
 
-      - name: Set up Temurin JDK 8
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "8"
-          cache: maven
-
-      - name: Write Maven settings (force all repos to Central)
-        run: |
-          mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml <<'XML'
-          <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
-                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                    xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
-            <mirrors>
-              <!-- Mirror EVERYTHING to Maven Central, including 4thline-repo -->
-              <mirror>
-                <id>force-central</id>
-                <name>Force all to Central</name>
-                <url>https://repo1.maven.org/maven2</url>
-                <mirrorOf>*</mirrorOf>
-              </mirror>
-            </mirrors>
-          </settings>
-          XML
-
-      - name: Disable lemma-maven-plugin (remove from parent POM)
-        run: |
-          perl -0777 -pe 's|<plugin>\s*<groupId>\s*org\.fourthline\.lemma\s*</groupId>.*?</plugin>||sg' -i pom.xml
-          echo "Remaining lemma references (should be none):"
-          grep -RIn "lemma-maven-plugin" || true
-
-      - name: Disable lemma-maven-plugin in all POMs (sledgehammer)
-        run: |
-          grep -RIl "lemma-maven-plugin" -n || true
-          find . -name "pom.xml" -print0 | xargs -0 -I{} \
-            perl -0777 -pe 's|<plugin>\s*<groupId>\s*org\.fourthline\.lemma\s*</groupId>.*?</plugin>||sg' -i {}
-
       - name: Build (no tests)
-        run: >
-          mvn -q -s ~/.m2/settings.xml -DskipTests -pl core -am clean install
-          -Dlicense.skip=true -Dcheckstyle.skip -Drat.skip
+        run: mvn -q -DskipTests -pl core -am clean install -Dlicense.skip=true -Dcheckstyle.skip -Drat.skip
 
       - name: Run test normally (expect PASS)
-        run: >
-          mvn -s ~/.m2/settings.xml -pl core test
-          -Dtest='org.fourthline.cling.test.gena.EventXMLProcessingTest#writeReadRequestPull'
+        run: mvn -pl core test -Dtest='org.fourthline.cling.test.gena.EventXMLProcessingTest#writeReadRequestPull'
 
       - name: Run with NonDex (expect FAIL)
         run: |
           set +e
-          mvn -s ~/.m2/settings.xml -pl core edu.illinois:nondex-maven-plugin:2.1.1:nondex \
+          mvn -pl core edu.illinois:nondex-maven-plugin:2.1.1:nondex \
             -Dtest='org.fourthline.cling.test.gena.EventXMLProcessingTest#writeReadRequestPull' \
-            -DnondexRuns='${{ github.event.inputs.nondexRuns }}' \
+            -DnondexRuns='200' \
             -Dsurefire.rerunFailingTestsCount=0 | tee nondex.log
           EC=$?
           echo "NonDex exit code: $EC"
-          if [ $EC -eq 0 ]; then
-            echo "Unexpected: NonDex passed."; exit 1
-          else
-            echo "Expected NonDex failure reproduced."; exit 0
-          fi
+          [ $EC -ne 0 ] && echo "Expected NonDex failure reproduced." && exit 0
+          echo "Unexpected: NonDex passed." && exit 1
 
       - name: Upload logs
         if: always()
