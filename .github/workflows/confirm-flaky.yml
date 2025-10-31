@@ -56,6 +56,12 @@ jobs:
           echo "Remaining lemma references (should be none):"
           grep -RIn "lemma-maven-plugin" || true
 
+      - name: Disable lemma-maven-plugin in all POMs (sledgehammer)
+        run: |
+          grep -RIl "lemma-maven-plugin" -n || true
+          find . -name "pom.xml" -print0 | xargs -0 -I{} \
+            perl -0777 -pe 's|<plugin>\s*<groupId>\s*org\.fourthline\.lemma\s*</groupId>.*?</plugin>||sg' -i {}
+
       - name: Build (no tests)
         run: >
           mvn -q -s ~/.m2/settings.xml -DskipTests -pl core -am clean install
