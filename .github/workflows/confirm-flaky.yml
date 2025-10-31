@@ -25,7 +25,7 @@ jobs:
           distribution: temurin
           java-version: "8"
           cache: maven
-      
+
       - name: Write Maven settings (mirror old HTTP repos)
         run: |
           mkdir -p ~/.m2
@@ -34,14 +34,12 @@ jobs:
                     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                     xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
             <mirrors>
-              <!-- Replace cling's HTTP repo with HTTPS -->
               <mirror>
                 <id>4thline-https</id>
                 <name>4thline HTTPS mirror</name>
                 <url>https://4thline.org/m2</url>
                 <mirrorOf>4thline-repo</mirrorOf>
               </mirror>
-              <!-- Point the dead Google Code repo at Maven Central so Maven doesn't choke -->
               <mirror>
                 <id>onejar-central</id>
                 <name>OneJar fallback to Central</name>
@@ -51,6 +49,12 @@ jobs:
             </mirrors>
           </settings>
           XML
+
+      - name: Disable lemma-maven-plugin (remove from parent POM)
+        run: |
+          perl -0777 -pe 's|<plugin>\s*<groupId>\s*org\.fourthline\.lemma\s*</groupId>.*?</plugin>||sg' -i pom.xml
+          echo "Remaining lemma references (should be none):"
+          grep -RIn "lemma-maven-plugin" || true
 
       - name: Build (no tests)
         run: >
