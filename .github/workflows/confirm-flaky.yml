@@ -26,7 +26,7 @@ jobs:
           java-version: "8"
           cache: maven
 
-      - name: Write Maven settings (mirror old HTTP repos)
+      - name: Write Maven settings (force all repos to Central)
         run: |
           mkdir -p ~/.m2
           cat > ~/.m2/settings.xml <<'XML'
@@ -34,17 +34,12 @@ jobs:
                     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                     xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
             <mirrors>
+              <!-- Mirror EVERYTHING to Maven Central, including 4thline-repo -->
               <mirror>
-                <id>4thline-https</id>
-                <name>4thline HTTPS mirror</name>
-                <url>https://4thline.org/m2</url>
-                <mirrorOf>4thline-repo</mirrorOf>
-              </mirror>
-              <mirror>
-                <id>onejar-central</id>
-                <name>OneJar fallback to Central</name>
+                <id>force-central</id>
+                <name>Force all to Central</name>
                 <url>https://repo1.maven.org/maven2</url>
-                <mirrorOf>onejar-maven-plugin.googlecode.com</mirrorOf>
+                <mirrorOf>*</mirrorOf>
               </mirror>
             </mirrors>
           </settings>
